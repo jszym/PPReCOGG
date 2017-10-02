@@ -56,3 +56,14 @@ docs/_build/
 
 # PyBuilder
 target/
+
+*.h5
+imgs/
+features/
+
+# I bounce between a lot of editors
+# depending on my mood...
+.idea/
+.vscode/
+
+.ipynb_checkpoints/

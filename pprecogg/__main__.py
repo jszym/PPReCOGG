@@ -23,10 +23,19 @@
 import click
 import numpy as np
 
-
 @click.group()
 def cli_pprecogg():
     pass
+
+
+@cli_pprecogg.command()
+@click.option('--config_file', help='Path to a JSON file that contains the paths to\
+                                        Gabor features.')
+def visualise_gabor_features(config_file):
+    from . import visualiseFeatures
+
+    config = parse_full_auto_config(config_file)
+    visualiseFeatures.visualise(config)
 
 
 @cli_pprecogg.command()
@@ -114,7 +123,8 @@ def parse_full_auto_config(config_file):
         ("gabor_lambda", 0.25),
         ("gabor_gamma", 0.02),
         ("gabor_psi", 0),
-        ("gabor_thetas", [np.pi/4, np.pi/2, 3*np.pi/4, np.pi])
+        ("gabor_thetas", [np.pi/4, np.pi/2, 3*np.pi/4, np.pi]),
+        ("gabor_ksize", "win_shape")
     ]
 
     for argument in expected_arguments:
@@ -154,7 +164,8 @@ def full_auto(config_file):
                                                                 config["gabor_lambda"],
                                                                 config["gabor_gamma"],
                                                                 config["gabor_psi"],
-                                                                config["gabor_thetas"])
+                                                                config["gabor_thetas"],
+                                                                config["gabor_ksize"])
 
     if config["known_features"] is not False:
         known_features_paths = config["known_features"]
@@ -173,7 +184,8 @@ def full_auto(config_file):
                                                            config["gabor_lambda"],
                                                            config["gabor_gamma"],
                                                            config["gabor_psi"],
-                                                           config["gabor_thetas"])
+                                                           config["gabor_thetas"],
+                                                           config["gabor_ksize"])
 
     class_names, classified_coords = classifyFeatures.classify_features(unknown_features_path,
                                                                         known_features_paths)

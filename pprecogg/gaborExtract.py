@@ -176,7 +176,8 @@ def get_HDF5_table(hd5_filename, window_sizes, num_thetas):
 def extract_gabor_features(filename, resize=255, window_sizes=[64, 32, 16, 8, 4],
                            batch_size=100, gabor_sigma=1.0, gabor_lambda=0.25,
                            gabor_gamma=0.02, gabor_psi=0,
-                           gabor_thetas=[np.pi / 4, np.pi / 2, 3 * np.pi / 4, np.pi]):
+                           gabor_thetas=[np.pi / 4, np.pi / 2, 3 * np.pi / 4, np.pi],
+                           gabor_ksize="win_size"):
     """
     Briefly, calculates the means and standard deviations of a random sampling of
     windows convolved with several Gabor filters.
@@ -220,6 +221,9 @@ def extract_gabor_features(filename, resize=255, window_sizes=[64, 32, 16, 8, 4]
     :param gabor_gamma: The bandwidth of the gabor function.
     :param gabor_psi: The phase offset of the gabor function.
     :param gabor_thetas: The orientation of the filter, in radians.
+    :param gabor_ksize: Defaults to (19,19). When gabor_ksize is equal to the
+                        string "win_size", the gabor kernel is the size of the
+                        window it's convolving.
     :return: The name of the H5 file that the results are saed to.
     """
     image_name = os.path.basename(filename)
@@ -249,6 +253,8 @@ def extract_gabor_features(filename, resize=255, window_sizes=[64, 32, 16, 8, 4]
                                           (im.shape[0] * resize,
                                            im.shape[1] * resize))
 
+    # the number of windows (of each size) that are sampled from the image
+    # TODO: Make this an argument, it' currently set at the magic number of 1/4
     num_windows = int(math.pow(im.shape[0], 2) // 4)
 
     batches = get_windows_batches(num_windows,
@@ -275,7 +281,11 @@ def extract_gabor_features(filename, resize=255, window_sizes=[64, 32, 16, 8, 4]
         kerns = []
 
         for gabor_theta in gabor_thetas:
-            kern = cv2.getGaborKernel(win_shape,
+
+            if gabor_ksize == "win_shape":
+                gabor_ksize = win_shape
+
+            kern = cv2.getGaborKernel(gabor_ksize,
                                       gabor_sigma,
                                       gabor_theta,
                                       gabor_lambda,

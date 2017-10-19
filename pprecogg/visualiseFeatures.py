@@ -20,17 +20,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# -*- coding: utf-8 -*-
-#
-# visualiseFeatures.py
-# ========================
-# An interactive command-line interface to the
-# kmKNNGabor libraries.
-# ========================
-#
-# Copyright (c) 2017 Joseph Szymborski under the MIT License
-# (see LICENSE file for details)
-
 from sklearn.manifold import MDS
 import numpy as np
 import h5py

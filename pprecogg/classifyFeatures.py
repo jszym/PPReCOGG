@@ -147,7 +147,7 @@ def classify_features(unknown_features_path, known_features_paths, save_csv=Fals
     return class_names, classified_coords
 
 
-def plot_coords(class_coords, unknown_image, resize):
+def plot_coords(class_coords, unknown_image, resize=False):
     import matplotlib.pyplot as plt
     import skimage.transform
 

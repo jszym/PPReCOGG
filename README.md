@@ -13,6 +13,8 @@ tissue, such as that you'd extract from a breast biopsy.
 This library is almost, but not quite complete; much like the 
 master's thesis for which it was written.
 
+![Result Example](pprecogg_result.png)
+
 ## Documentation
 Documentation is [available here](http://bit.ly/2BHzYfL).
 

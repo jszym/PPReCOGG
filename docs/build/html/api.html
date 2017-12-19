@@ -1,0 +1,321 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>API Documentation &#8212; PPReCOGG 1.0a1 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1.0a1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Welcome to PPReCOGG’s documentation!" href="index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="api-documentation">
+<h1>API Documentation<a class="headerlink" href="#api-documentation" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="gaborextract">
+<h2>gaborExtract<a class="headerlink" href="#gaborextract" title="Permalink to this headline">¶</a></h2>
+<p>The gaborExtract module is responsible for efficiently extracting
+Gabor means and stdevs from a random sampling of pixels, using multiple
+window sizes and Gabor orientations. These operations are GPU-accelerated
+on platforms with compatible GPUs. Features are stored in HDF5 files.</p>
+<span class="target" id="module-pprecogg.gaborExtract"></span><dl class="function">
+<dt id="pprecogg.gaborExtract.extract_gabor_features">
+<code class="descclassname">pprecogg.gaborExtract.</code><code class="descname">extract_gabor_features</code><span class="sig-paren">(</span><em>filename, resize=255, window_sizes=[64, 32, 16, 8, 4], batch_size=100, gabor_sigma=1.0, gabor_lambda=0.25, gabor_gamma=0.02, gabor_psi=0, gabor_thetas=[0.7853981633974483, 1.5707963267948966, 2.356194490192345, 3.141592653589793]</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pprecogg/gaborExtract.html#extract_gabor_features"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pprecogg.gaborExtract.extract_gabor_features" title="Permalink to this definition">¶</a></dt>
+<dd><p>Briefly, calculates the means and standard deviations of a random sampling of
+windows convolved with several Gabor filters.</p>
+<p>Windows of sizes <cite>window_sizes</cite> are centered on a random sampling of pixels of
+the image located at <cite>filename</cite> resized to <cite>resize`x`resize</cite> pixels. A quarter
+of the area of the image is sampled.</p>
+<p>The final output are the means and standard deviation of the
+resultant convolutions of the windows against <cite>n</cite> Gabor filters, where
+<cite>n</cite> is the number of elements in <cite>gabor_thetas</cite>. The Gabor filters are
+are generated according to the <cite>gabor_</cite> prefixed arguments.</p>
+<p>The means and standard deviation are saved into a HDF5 file with the filename
+“gabor_{image_name}_s{sigma}_l{lambda}_g{gamma}_p{psi}_{time}.h5” where</p>
+<p>{image_name} is the filename of the image
+{sigma} is the sigma argument of the gabor function
+{lambda} is the lambda argument of the gabor function
+{gamma} is the gamma argument of the gabor function
+{psi} is the psi argument of the gabor function
+{time} is the unix time stamp</p>
+<p>If a compliant GPU is detected, convolutions will be computed on them.
+Computations will fall back on CPU in other cases.</p>
+<p>Convolutions are computed in batches of size <cite>batch_size</cite>. In the event of a
+memory error, this number should be reduced.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>filename</strong> – The path to the image whose gabor energies are to be calculated.</li>
+<li><strong>resize</strong> – Image at <cite>filename</cite> will be resized to <cite>resize`x`resize</cite> pixels
+prior to computation. Image size is positively correlated to
+computation time.</li>
+<li><strong>window_sizes</strong> – The sizes of the sliding windows to be extracted at each
+pixel.</li>
+<li><strong>batch_size</strong> – The number of windows to convolve at a time. Reduce this
+number in the event of memory errors; increase this
+number in the event of slow computation time.</li>
+<li><strong>gabor_sigma</strong> – The standard-deviation of the gabor function.</li>
+<li><strong>gabor_lambda</strong> – The frequency of the gabor function.</li>
+<li><strong>gabor_gamma</strong> – The bandwidth of the gabor function.</li>
+<li><strong>gabor_psi</strong> – The phase offset of the gabor function.</li>
+<li><strong>gabor_thetas</strong> – The orientation of the filter, in radians.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">The name of the H5 file that the results are saed to.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="pprecogg.gaborExtract.get_HDF5_table">
+<code class="descclassname">pprecogg.gaborExtract.</code><code class="descname">get_HDF5_table</code><span class="sig-paren">(</span><em>hd5_filename</em>, <em>window_sizes</em>, <em>num_thetas</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pprecogg/gaborExtract.html#get_HDF5_table"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pprecogg.gaborExtract.get_HDF5_table" title="Permalink to this definition">¶</a></dt>
+<dd><p>Opens HDF5 file and tables to save gabor means and standard
+deviations</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>hd5_filename</strong> (<em>String</em>) – Name of the file to save the features to.</li>
+<li><strong>window_sizes</strong> (<em>Array</em>) – A list of window sizes whose means and stdevs
+will be saved.</li>
+<li><strong>num_thetas</strong> (<em>Int</em>) – Number of thetas (i.e number of means and stdevs)</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">List of pytable objects</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="pprecogg.gaborExtract.get_window">
+<code class="descclassname">pprecogg.gaborExtract.</code><code class="descname">get_window</code><span class="sig-paren">(</span><em>i</em>, <em>j</em>, <em>win_size</em>, <em>im</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pprecogg/gaborExtract.html#get_window"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pprecogg.gaborExtract.get_window" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get a window from <cite>im</cite> of size <cite>win_size</cite> centered
+on coordinates <cite>(i,j)</cite>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>i</strong> (<em>int</em>) – x pixel coordinate to center the window on the image.</li>
+<li><strong>j</strong> (<em>int</em>) – y pixel coordinate to center the window on the image.</li>
+<li><strong>win_size</strong> (<em>int</em>) – the length and width of the window to extract.</li>
+<li><strong>im</strong> (<em>numpy array</em>) – numpy pixel array of the image.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">the window extracted of size (win_size,win_size).</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">numpy array (2 dimensions)</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="pprecogg.gaborExtract.get_windows_batches">
+<code class="descclassname">pprecogg.gaborExtract.</code><code class="descname">get_windows_batches</code><span class="sig-paren">(</span><em>num_windows</em>, <em>win_sizes</em>, <em>im</em>, <em>batch_size</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pprecogg/gaborExtract.html#get_windows_batches"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pprecogg.gaborExtract.get_windows_batches" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get <cite>num_windows</cite> number of randomly places windows of sizes
+<cite>win_sizes</cite> from image <cite>im</cite> in batches of <cite>batch_size</cite>.</p>
+<p>This is a generator, and will have to be iterated over.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>num_windows</strong> (<em>int</em>) – Number of windows (of each window size)
+to extract from image.</li>
+<li><strong>win_sizes</strong> (<em>array of ints</em>) – Size of windows to be extracted. Final
+number of windows extracted will be
+<cite>window_size * num_windows</cite>.</li>
+<li><strong>im</strong> (<em>numpy array</em>) – Array of pixels of the image from which to extract
+windows from.</li>
+<li><strong>batch_size</strong> (<em>int</em>) – Max number of windows per batch (iteration).</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Batch of randomly sampled windows from <cite>im</cite>. 3 dimensions
+(batch_size, window_size, windows_size).</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">numpy array</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+<div class="section" id="classifyfeatures">
+<h2>classifyFeatures<a class="headerlink" href="#classifyfeatures" title="Permalink to this headline">¶</a></h2>
+<p>Given features extracted from the gaborExtract model, this module
+parses feature files and classifies sets of unknown pixel features
+as belonging to known pixel feature-sets using a k-nearest-neighbors
+approach.</p>
+<span class="target" id="module-pprecogg.classifyFeatures"></span><dl class="function">
+<dt id="pprecogg.classifyFeatures.classify_features">
+<code class="descclassname">pprecogg.classifyFeatures.</code><code class="descname">classify_features</code><span class="sig-paren">(</span><em>unknown_features_path</em>, <em>known_features_paths</em>, <em>save_csv=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pprecogg/classifyFeatures.html#classify_features"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pprecogg.classifyFeatures.classify_features" title="Permalink to this definition">¶</a></dt>
+<dd><p>Classifies features, given multiple paths to features of known classes, and one
+path to features of an unknown image that is comprised of one or more of the 
+known classes. Outputs two arrays. The first contains the labels of the pixels
+classified, and the second contains the coordinates of the pixels classified.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>unknown_features_path</strong> – Path to the HDF5 files that contain the Gabor 
+features of the image which is to be 
+classified.</li>
+<li><strong>known_features_paths</strong> – Array of paths to the HDF5 files containing the
+features of known classes.</li>
+<li><strong>save_csv</strong> – Boolean. Whether or not to save the list of pixels with their
+labels in a comma-seperated-value file (CSV). Can be opened
+easily in Excel and parsed by other libraries.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="pprecogg.classifyFeatures.flatten_features">
+<code class="descclassname">pprecogg.classifyFeatures.</code><code class="descname">flatten_features</code><span class="sig-paren">(</span><em>file_paths</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pprecogg/classifyFeatures.html#flatten_features"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pprecogg.classifyFeatures.flatten_features" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given a number of Gabor features stored in HDF5 files, create
+three arrays containing the coordinates, features, and labels
+across all feature files.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>file_paths</strong> – an array with the paths to the feature files.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="pprecogg.classifyFeatures.parse_features_hdf5">
+<code class="descclassname">pprecogg.classifyFeatures.</code><code class="descname">parse_features_hdf5</code><span class="sig-paren">(</span><em>file_path</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pprecogg/classifyFeatures.html#parse_features_hdf5"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pprecogg.classifyFeatures.parse_features_hdf5" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reads Gabor features from HDF5 files. Outputs a tuple of coordinates and
+features. The coordinates are those of which feature windows have been
+centered on. Features are an array of feature means and standard deviations
+of Gabor energies.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>file_path</strong> – Path to the HDF5 file with the Gabor features.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">PPReCOGG</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">API Documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#gaborextract">gaborExtract</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#classifyfeatures">classifyFeatures</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Welcome to PPReCOGG’s documentation!</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017, Joseph Szymborski.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="_sources/api.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

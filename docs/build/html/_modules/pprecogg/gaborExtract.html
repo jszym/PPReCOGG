@@ -1,0 +1,451 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>pprecogg.gaborExtract &#8212; PPReCOGG 1.0a1 documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.0a1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pprecogg.gaborExtract</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="c1">#</span>
+<span class="c1"># gaborExtract.py</span>
+<span class="c1"># ========================</span>
+<span class="c1"># Library for extracting gabor features from windows of an image.</span>
+<span class="c1"># Accelerated by GPU via the Theano library</span>
+<span class="c1"># ========================</span>
+<span class="c1">#</span>
+<span class="c1"># Copyright 2017 Joseph Szymborski</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#    http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+
+<span class="kn">from</span> <span class="nn">PIL</span> <span class="k">import</span> <span class="n">Image</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">skimage.transform</span>
+<span class="kn">import</span> <span class="nn">theano.tensor</span> <span class="k">as</span> <span class="nn">T</span>
+<span class="kn">import</span> <span class="nn">theano</span>
+<span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">import</span> <span class="nn">cv2</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">tables</span>
+<span class="kn">import</span> <span class="nn">os.path</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">import</span> <span class="nn">itertools</span>
+
+
+<div class="viewcode-block" id="get_window"><a class="viewcode-back" href="../../api.html#pprecogg.gaborExtract.get_window">[docs]</a><span class="k">def</span> <span class="nf">get_window</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">win_size</span><span class="p">,</span> <span class="n">im</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get a window from `im` of size `win_size` centered</span>
+<span class="sd">    on coordinates `(i,j)`.</span>
+
+<span class="sd">    :param i:  x pixel coordinate to center the window on the image.</span>
+<span class="sd">    :type i: int</span>
+
+<span class="sd">    :param j: y pixel coordinate to center the window on the image.</span>
+<span class="sd">    :type j: int</span>
+
+<span class="sd">    :param win_size: the length and width of the window to extract.</span>
+<span class="sd">    :type win_size: int</span>
+
+<span class="sd">    :param im: numpy pixel array of the image.</span>
+<span class="sd">    :type im: numpy array</span>
+
+<span class="sd">    :return: the window extracted of size (win_size,win_size).</span>
+<span class="sd">    :rtype: numpy array (2 dimensions)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">bottom_row</span> <span class="o">=</span> <span class="n">j</span> <span class="o">-</span> <span class="nb">int</span><span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">win_size</span><span class="p">)</span>
+    <span class="n">top_row</span> <span class="o">=</span> <span class="n">j</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">win_size</span><span class="p">)</span>
+
+    <span class="n">left_column</span> <span class="o">=</span> <span class="n">i</span> <span class="o">-</span> <span class="nb">int</span><span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">win_size</span><span class="p">)</span>
+    <span class="n">right_column</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">win_size</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">im</span><span class="p">[</span><span class="n">bottom_row</span><span class="p">:</span><span class="n">top_row</span><span class="p">,</span> <span class="n">left_column</span><span class="p">:</span><span class="n">right_column</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="get_windows_batches"><a class="viewcode-back" href="../../api.html#pprecogg.gaborExtract.get_windows_batches">[docs]</a><span class="k">def</span> <span class="nf">get_windows_batches</span><span class="p">(</span><span class="n">num_windows</span><span class="p">,</span> <span class="n">win_sizes</span><span class="p">,</span> <span class="n">im</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get `num_windows` number of randomly places windows of sizes</span>
+<span class="sd">    `win_sizes` from image `im` in batches of `batch_size`.</span>
+
+<span class="sd">    This is a generator, and will have to be iterated over.</span>
+
+<span class="sd">    :param num_windows: Number of windows (of each window size)</span>
+<span class="sd">                        to extract from image.</span>
+<span class="sd">    :type num_windows: int</span>
+
+<span class="sd">    :param win_sizes: Size of windows to be extracted. Final</span>
+<span class="sd">                        number of windows extracted will be</span>
+<span class="sd">                        `window_size * num_windows`.</span>
+<span class="sd">    :type win_sizes: array of ints</span>
+
+<span class="sd">    :param im: Array of pixels of the image from which to extract</span>
+<span class="sd">                windows from.</span>
+<span class="sd">    :type im: numpy array</span>
+
+<span class="sd">    :param batch_size: Max number of windows per batch (iteration).</span>
+<span class="sd">    :type batch_size: int</span>
+
+<span class="sd">    :return: Batch of randomly sampled windows from `im`. 3 dimensions</span>
+<span class="sd">                (batch_size, window_size, windows_size).</span>
+<span class="sd">    :rtype: numpy array</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">max_win_size</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">win_sizes</span><span class="p">)</span>
+
+    <span class="c1"># randomly sample the entire population of coords</span>
+    <span class="n">population_coords</span> <span class="o">=</span> <span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">max_win_size</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span>
+                                                <span class="n">im</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="p">(</span><span class="n">max_win_size</span> <span class="o">//</span> <span class="mi">2</span><span class="p">)),</span>
+                                          <span class="n">repeat</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+    <span class="n">population_coords</span> <span class="o">=</span> <span class="p">[</span><span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">population_coords</span><span class="p">]</span>
+
+    <span class="n">coords</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">population_coords</span><span class="p">,</span> <span class="n">num_windows</span><span class="p">)</span>
+
+    <span class="k">yield</span> <span class="n">coords</span>
+
+    <span class="k">for</span> <span class="n">win_size</span> <span class="ow">in</span> <span class="n">win_sizes</span><span class="p">:</span>
+        <span class="n">batch</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">batch_coords</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">coord</span> <span class="ow">in</span> <span class="n">coords</span><span class="p">:</span>
+            <span class="n">window</span> <span class="o">=</span> <span class="n">get_window</span><span class="p">(</span><span class="n">coord</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                                <span class="n">coord</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                                <span class="n">win_size</span><span class="p">,</span>
+                                <span class="n">im</span><span class="p">)</span>
+
+            <span class="n">batch</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">window</span><span class="p">])</span>
+            <span class="n">batch_coords</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">coord</span><span class="p">)</span>
+
+            <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">%</span> <span class="n">batch_size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="p">(</span><span class="n">batch_coords</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">batch</span><span class="p">))</span>
+                <span class="n">batch</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">batch_coords</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="p">(</span><span class="n">batch_coords</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">batch</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="get_HDF5_table"><a class="viewcode-back" href="../../api.html#pprecogg.gaborExtract.get_HDF5_table">[docs]</a><span class="k">def</span> <span class="nf">get_HDF5_table</span><span class="p">(</span><span class="n">hd5_filename</span><span class="p">,</span> <span class="n">window_sizes</span><span class="p">,</span> <span class="n">num_thetas</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Opens HDF5 file and tables to save gabor means and standard</span>
+<span class="sd">    deviations</span>
+
+<span class="sd">    :param hd5_filename: Name of the file to save the features to.</span>
+<span class="sd">    :type hd5_filename: String</span>
+
+<span class="sd">    :param window_sizes: A list of window sizes whose means and stdevs</span>
+<span class="sd">                            will be saved.</span>
+<span class="sd">    :type window_sizes: Array</span>
+
+<span class="sd">    :param num_thetas: Number of thetas (i.e number of means and stdevs)</span>
+<span class="sd">    :type num_thetas: Int</span>
+
+<span class="sd">    :return: List of pytable objects</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">h5file</span> <span class="o">=</span> <span class="n">tables</span><span class="o">.</span><span class="n">open_file</span><span class="p">(</span><span class="n">hd5_filename</span><span class="p">,</span>
+                              <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;w&quot;</span><span class="p">)</span>
+
+    <span class="n">group_id</span> <span class="o">=</span> <span class="s2">&quot;gabor_features&quot;</span>
+    <span class="n">group_title</span> <span class="o">=</span> <span class="s2">&quot;Gabor Features&quot;</span>
+    <span class="n">h5_group</span> <span class="o">=</span> <span class="n">h5file</span><span class="o">.</span><span class="n">create_group</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">,</span>
+                                   <span class="n">group_id</span><span class="p">,</span>
+                                   <span class="n">group_title</span><span class="p">)</span>
+
+    <span class="k">class</span> <span class="nc">GaborWinFeatures</span><span class="p">(</span><span class="n">tables</span><span class="o">.</span><span class="n">IsDescription</span><span class="p">):</span>
+        <span class="n">win_size</span> <span class="o">=</span> <span class="n">tables</span><span class="o">.</span><span class="n">Int32Col</span><span class="p">(</span><span class="n">pos</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">coord</span> <span class="o">=</span> <span class="n">tables</span><span class="o">.</span><span class="n">Int32Col</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,),</span> <span class="n">pos</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">means</span> <span class="o">=</span> <span class="n">tables</span><span class="o">.</span><span class="n">Float32Col</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">num_thetas</span><span class="p">,),</span> <span class="n">pos</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">stds</span> <span class="o">=</span> <span class="n">tables</span><span class="o">.</span><span class="n">Float32Col</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">num_thetas</span><span class="p">,),</span> <span class="n">pos</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+
+    <span class="n">gabor_feature_tables</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">for</span> <span class="n">window_size</span> <span class="ow">in</span> <span class="n">window_sizes</span><span class="p">:</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="n">h5file</span><span class="o">.</span><span class="n">create_table</span><span class="p">(</span><span class="n">h5_group</span><span class="p">,</span>
+                                    <span class="s1">&#39;gabor_features_</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">window_size</span><span class="p">),</span>
+                                    <span class="n">GaborWinFeatures</span><span class="p">,</span>
+                                    <span class="s2">&quot;Gabor Features </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">window_size</span><span class="p">))</span>
+
+        <span class="n">gabor_feature_tables</span><span class="p">[</span><span class="n">window_size</span><span class="p">]</span> <span class="o">=</span> <span class="n">table</span>
+
+    <span class="k">return</span> <span class="n">gabor_feature_tables</span></div>
+
+
+<div class="viewcode-block" id="extract_gabor_features"><a class="viewcode-back" href="../../api.html#pprecogg.gaborExtract.extract_gabor_features">[docs]</a><span class="k">def</span> <span class="nf">extract_gabor_features</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">resize</span><span class="o">=</span><span class="mi">255</span><span class="p">,</span> <span class="n">window_sizes</span><span class="o">=</span><span class="p">[</span><span class="mi">64</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span>
+                           <span class="n">batch_size</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">gabor_sigma</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">gabor_lambda</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span>
+                           <span class="n">gabor_gamma</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span> <span class="n">gabor_psi</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                           <span class="n">gabor_thetas</span><span class="o">=</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">4</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">4</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">]):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Briefly, calculates the means and standard deviations of a random sampling of</span>
+<span class="sd">    windows convolved with several Gabor filters.</span>
+
+<span class="sd">    Windows of sizes `window_sizes` are centered on a random sampling of pixels of</span>
+<span class="sd">    the image located at `filename` resized to `resize`x`resize` pixels. A quarter</span>
+<span class="sd">    of the area of the image is sampled.</span>
+
+<span class="sd">    The final output are the means and standard deviation of the</span>
+<span class="sd">    resultant convolutions of the windows against `n` Gabor filters, where</span>
+<span class="sd">    `n` is the number of elements in `gabor_thetas`. The Gabor filters are</span>
+<span class="sd">    are generated according to the `gabor_` prefixed arguments.</span>
+
+<span class="sd">    The means and standard deviation are saved into a HDF5 file with the filename</span>
+<span class="sd">    &quot;gabor_{image_name}_s{sigma}_l{lambda}_g{gamma}_p{psi}_{time}.h5&quot; where</span>
+
+<span class="sd">    {image_name} is the filename of the image</span>
+<span class="sd">    {sigma} is the sigma argument of the gabor function</span>
+<span class="sd">    {lambda} is the lambda argument of the gabor function</span>
+<span class="sd">    {gamma} is the gamma argument of the gabor function</span>
+<span class="sd">    {psi} is the psi argument of the gabor function</span>
+<span class="sd">    {time} is the unix time stamp</span>
+
+<span class="sd">    If a compliant GPU is detected, convolutions will be computed on them.</span>
+<span class="sd">    Computations will fall back on CPU in other cases.</span>
+
+<span class="sd">    Convolutions are computed in batches of size `batch_size`. In the event of a</span>
+<span class="sd">    memory error, this number should be reduced.</span>
+
+<span class="sd">    :param filename: The path to the image whose gabor energies are to be calculated.</span>
+<span class="sd">    :param resize: Image at `filename` will be resized to `resize`x`resize` pixels</span>
+<span class="sd">                    prior to computation. Image size is positively correlated to</span>
+<span class="sd">                    computation time.</span>
+<span class="sd">    :param window_sizes: The sizes of the sliding windows to be extracted at each</span>
+<span class="sd">                            pixel.</span>
+<span class="sd">    :param batch_size:  The number of windows to convolve at a time. Reduce this</span>
+<span class="sd">                            number in the event of memory errors; increase this</span>
+<span class="sd">                            number in the event of slow computation time.</span>
+<span class="sd">    :param gabor_sigma: The standard-deviation of the gabor function.</span>
+<span class="sd">    :param gabor_lambda: The frequency of the gabor function.</span>
+<span class="sd">    :param gabor_gamma: The bandwidth of the gabor function.</span>
+<span class="sd">    :param gabor_psi: The phase offset of the gabor function.</span>
+<span class="sd">    :param gabor_thetas: The orientation of the filter, in radians.</span>
+<span class="sd">    :return: The name of the H5 file that the results are saed to.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">image_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+
+    <span class="n">hd5_filename</span> <span class="o">=</span> <span class="s2">&quot;gabor_</span><span class="si">{}</span><span class="s2">_s</span><span class="si">{}</span><span class="s2">_l</span><span class="si">{}</span><span class="s2">_g</span><span class="si">{}</span><span class="s2">_p</span><span class="si">{}</span><span class="s2">_</span><span class="si">{}</span><span class="s2">.h5&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">image_name</span><span class="p">,</span>
+                                                           <span class="n">gabor_sigma</span><span class="p">,</span>
+                                                           <span class="n">gabor_lambda</span><span class="p">,</span>
+                                                           <span class="n">gabor_gamma</span><span class="p">,</span>
+                                                           <span class="n">gabor_psi</span><span class="p">,</span>
+                                                           <span class="nb">int</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()))</span>
+
+    <span class="n">gabor_feature_tables</span> <span class="o">=</span> <span class="n">get_HDF5_table</span><span class="p">(</span><span class="n">hd5_filename</span><span class="p">,</span>
+                                          <span class="n">window_sizes</span><span class="p">,</span>
+                                          <span class="nb">len</span><span class="p">(</span><span class="n">gabor_thetas</span><span class="p">))</span>
+
+    <span class="n">im</span> <span class="o">=</span> <span class="n">Image</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="s1">&#39;L&#39;</span><span class="p">)</span>
+
+    <span class="n">im</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">im</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">resize</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">resize</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">im</span> <span class="o">=</span> <span class="n">skimage</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">im</span><span class="p">,</span>
+                                          <span class="p">(</span><span class="n">resize</span><span class="p">,</span>
+                                           <span class="n">resize</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">im</span> <span class="o">=</span> <span class="n">skimage</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">im</span><span class="p">,</span>
+                                          <span class="p">(</span><span class="n">im</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">resize</span><span class="p">,</span>
+                                           <span class="n">im</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">resize</span><span class="p">))</span>
+
+    <span class="n">num_windows</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">pow</span><span class="p">(</span><span class="n">im</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">2</span><span class="p">)</span> <span class="o">//</span> <span class="mi">4</span><span class="p">)</span>
+
+    <span class="n">batches</span> <span class="o">=</span> <span class="n">get_windows_batches</span><span class="p">(</span><span class="n">num_windows</span><span class="p">,</span>
+                                  <span class="n">window_sizes</span><span class="p">,</span>
+                                  <span class="n">im</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">)</span>
+
+    <span class="n">total_batches</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="nb">next</span><span class="p">(</span><span class="n">batches</span><span class="p">))</span><span class="o">/</span><span class="mi">100</span><span class="p">)</span>
+    <span class="n">total_time</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">batch_counter</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="n">image_tensor</span> <span class="o">=</span> <span class="n">T</span><span class="o">.</span><span class="n">tensor4</span><span class="p">()</span>
+    <span class="n">filter_tensor</span> <span class="o">=</span> <span class="n">T</span><span class="o">.</span><span class="n">tensor4</span><span class="p">()</span>
+
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">batch</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">batches</span><span class="p">):</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+        <span class="n">coord</span><span class="p">,</span> <span class="n">batch</span> <span class="o">=</span> <span class="n">batch</span>
+
+        <span class="n">win_shape</span> <span class="o">=</span> <span class="n">batch</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">num_batches</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+
+        <span class="n">batch</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+        <span class="n">kerns</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">gabor_theta</span> <span class="ow">in</span> <span class="n">gabor_thetas</span><span class="p">:</span>
+            <span class="n">kern</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">getGaborKernel</span><span class="p">(</span><span class="n">win_shape</span><span class="p">,</span>
+                                      <span class="n">gabor_sigma</span><span class="p">,</span>
+                                      <span class="n">gabor_theta</span><span class="p">,</span>
+                                      <span class="n">gabor_lambda</span><span class="p">,</span>
+                                      <span class="n">gabor_gamma</span><span class="p">,</span>
+                                      <span class="n">gabor_psi</span><span class="p">,</span> <span class="n">ktype</span><span class="o">=</span><span class="n">cv2</span><span class="o">.</span><span class="n">CV_32F</span><span class="p">)</span>
+            <span class="n">kerns</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kern</span><span class="p">)</span>
+
+        <span class="n">means</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">stds</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">kern</span> <span class="ow">in</span> <span class="n">kerns</span><span class="p">:</span>
+            <span class="n">kern_shape</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">kern</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span>
+
+            <span class="n">kern_4d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">kern</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span>
+                                             <span class="mi">1</span><span class="p">,</span>
+                                             <span class="n">kern_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                                             <span class="n">kern_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+            <span class="n">theano_convolve2d</span> <span class="o">=</span> <span class="n">theano</span><span class="o">.</span><span class="n">function</span><span class="p">([</span><span class="n">image_tensor</span><span class="p">,</span> <span class="n">filter_tensor</span><span class="p">],</span>
+                                                <span class="n">T</span><span class="o">.</span><span class="n">nnet</span><span class="o">.</span><span class="n">conv2d</span><span class="p">(</span>
+                                                    <span class="n">image_tensor</span><span class="p">,</span>
+                                                    <span class="n">filter_tensor</span><span class="p">,</span>
+                                                    <span class="n">input_shape</span><span class="o">=</span><span class="p">(</span><span class="n">num_batches</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">win_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">win_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
+                                                    <span class="n">filter_shape</span><span class="o">=</span><span class="p">(</span><span class="n">num_batches</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">kern_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">kern_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
+                                                    <span class="n">border_mode</span><span class="o">=</span><span class="p">(</span><span class="n">win_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">win_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])))</span>
+
+            <span class="n">theano_convolved</span> <span class="o">=</span> <span class="n">theano_convolve2d</span><span class="p">(</span><span class="n">batch</span><span class="p">,</span>
+                                                 <span class="n">kern_4d</span><span class="p">)</span>
+
+            <span class="n">output_shape</span> <span class="o">=</span> <span class="n">theano_convolved</span><span class="o">.</span><span class="n">shape</span>
+
+            <span class="n">conv_flat</span> <span class="o">=</span> <span class="n">theano_convolved</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">num_batches</span><span class="p">,</span>
+                                                 <span class="n">output_shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="n">output_shape</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
+
+            <span class="n">conv_mean</span> <span class="o">=</span> <span class="n">conv_flat</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">means</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">conv_mean</span><span class="p">)</span>
+
+            <span class="n">conv_std</span> <span class="o">=</span> <span class="n">conv_flat</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">stds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">conv_std</span><span class="p">)</span>
+
+        <span class="n">end</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span>
+
+        <span class="n">total_time</span> <span class="o">+=</span> <span class="n">end</span>
+
+        <span class="n">batch_counter</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="n">avg_time</span> <span class="o">=</span> <span class="n">total_time</span><span class="o">/</span><span class="p">(</span><span class="n">batch_counter</span><span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{:5}</span><span class="s2">/</span><span class="si">{:5}</span><span class="s2"> batches complete [ETA </span><span class="si">{:3.2f}</span><span class="s2">m], ~</span><span class="si">{:3.2f}</span><span class="s2">s per batch&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">batch_counter</span><span class="p">,</span>
+                                                                                    <span class="n">total_batches</span><span class="p">,</span>
+                                                                                    <span class="p">(</span><span class="n">avg_time</span><span class="o">*</span><span class="p">(</span><span class="n">total_batches</span><span class="o">-</span><span class="n">batch_counter</span><span class="p">))</span><span class="o">/</span><span class="mi">60</span><span class="p">,</span>
+                                                                                    <span class="n">avg_time</span><span class="p">))</span>
+
+        <span class="c1"># h5 start</span>
+        <span class="n">zipped_means</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">means</span><span class="p">)</span>
+        <span class="n">zipped_stds</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">stds</span><span class="p">)</span>
+
+        <span class="n">feature_table</span> <span class="o">=</span> <span class="n">gabor_feature_tables</span><span class="p">[</span><span class="n">win_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+        <span class="n">feature_table_row</span> <span class="o">=</span> <span class="n">feature_table</span><span class="o">.</span><span class="n">row</span>
+
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">mean</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">zipped_means</span><span class="p">):</span>
+            <span class="n">feature_table_row</span><span class="p">[</span><span class="s1">&#39;win_size&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">win_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">feature_table_row</span><span class="p">[</span><span class="s1">&#39;coord&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">coord</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">feature_table_row</span><span class="p">[</span><span class="s1">&#39;means&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mean</span>
+            <span class="n">feature_table_row</span><span class="p">[</span><span class="s1">&#39;stds&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">zipped_stds</span><span class="p">)</span>
+            <span class="n">feature_table_row</span><span class="o">.</span><span class="n">append</span><span class="p">()</span>
+
+        <span class="n">feature_table</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+        <span class="c1"># h5 end</span>
+
+    <span class="k">return</span> <span class="n">hd5_filename</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">PPReCOGG</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../how.html">How PPReCOGG Works</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API Documentation</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017, Joseph Szymborski.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

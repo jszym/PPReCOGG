@@ -1,0 +1,182 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Examples &#8212; PPReCOGG 1.0a1 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1.0a1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="API Documentation" href="api.html" />
+    <link rel="prev" title="How PPReCOGG Works" href="how.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="examples">
+<h1>Examples<a class="headerlink" href="#examples" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="library-usage-example">
+<h2>Library Usage Example<a class="headerlink" href="#library-usage-example" title="Permalink to this headline">¶</a></h2>
+<p>You can use PPReCOGG from python as so:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">pprecogg</span> <span class="k">import</span> <span class="n">gaborExtract</span><span class="p">,</span> <span class="n">classifyFeatures</span>
+
+<span class="c1"># path to the image you wish to classify</span>
+<span class="n">unknown_img_path</span> <span class="o">=</span> <span class="s2">&quot;/path/to/unknown/image&quot;</span>
+
+<span class="c1"># paths to the images whose class you know</span>
+<span class="n">adh_img_path</span> <span class="o">=</span> <span class="s2">&quot;/path/to/adh/image&quot;</span>
+<span class="n">dcis_img_path</span> <span class="o">=</span> <span class="s2">&quot;/path/to/dcis/image&quot;</span>
+
+<span class="c1"># features are extracted into HDF5 files, and extract_gabor_features</span>
+<span class="c1"># returns the path to said file</span>
+<span class="n">unknown_features_path</span> <span class="o">=</span> <span class="n">gaborExtract</span><span class="o">.</span><span class="n">extract_gabor_features</span><span class="p">(</span><span class="n">unknown_img_path</span><span class="p">)</span>
+<span class="n">adh_features_path</span> <span class="o">=</span> <span class="n">gaborExtract</span><span class="o">.</span><span class="n">extract_gabor_features</span><span class="p">(</span><span class="n">adh_img_path</span><span class="p">)</span>
+<span class="n">dcis_features_path</span> <span class="o">=</span> <span class="n">gaborExtract</span><span class="o">.</span><span class="n">extract_gabor_features</span><span class="p">(</span><span class="n">dcis_img_path</span><span class="p">)</span>
+
+<span class="c1"># classify features from unknown image.</span>
+<span class="c1"># returns an array of class ID and an array of classified coordinates</span>
+<span class="c1"># indexed by class (see: that array of class IDs)</span>
+<span class="n">class_names</span><span class="p">,</span><span class="n">classified_coords</span> <span class="o">=</span> <span class="n">classifyFeatures</span><span class="o">.</span><span class="n">classify_features</span><span class="p">(</span><span class="n">unknown_features_path</span><span class="p">,</span>
+<span class="n">known_features_paths</span><span class="p">)</span>
+
+
+<span class="c1"># we can convert this into a dictionary where the key is the class name</span>
+<span class="c1"># and the value are the coordinates that belong to it</span>
+<span class="n">classified_coords_dict</span> <span class="o">=</span> <span class="p">{</span><span class="n">class_names</span><span class="p">[</span><span class="n">class_num</span><span class="p">]:</span> <span class="n">class_coords</span> <span class="k">for</span> <span class="n">class_num</span><span class="p">,</span> <span class="n">class_coords</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">classified_coords</span><span class="p">)}</span>
+
+<span class="c1"># small ergonomic function to plot classified pixels on to the</span>
+<span class="c1"># unknown image</span>
+<span class="n">classifyFeatures</span><span class="o">.</span><span class="n">plot_coords</span><span class="p">(</span><span class="n">classified_coords_dict</span><span class="p">,</span>
+                                <span class="n">unknown_img_path</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="cli-usage">
+<h2>CLI Usage<a class="headerlink" href="#cli-usage" title="Permalink to this headline">¶</a></h2>
+<p>Simplest way to use PPReCOGG in CLI mode is to use the <cite>full_auto</cite>
+mode.</p>
+<p>Step One: Create configuration file:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="s2">&quot;unknown_image&quot;</span><span class="p">:</span> <span class="s2">&quot;/path/to/unknown/image&quot;</span><span class="p">,</span>
+
+<span class="o">/*</span> <span class="n">optional</span><span class="p">,</span> <span class="k">for</span> <span class="n">rerunning</span> <span class="o">*/</span>
+<span class="s2">&quot;unknown_features&quot;</span><span class="p">:</span> <span class="s2">&quot;/path/to/unknown/features.h5&quot;</span><span class="p">,</span>
+
+<span class="s2">&quot;known_images&quot;</span><span class="p">:[</span>
+    <span class="s2">&quot;/path/to/known/image&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;/path/to/known/image&quot;</span><span class="p">],</span>
+
+<span class="o">/*</span> <span class="n">optional</span><span class="p">,</span> <span class="k">for</span> <span class="n">rerunning</span> <span class="o">*/</span>
+<span class="s2">&quot;known_features&quot;</span><span class="p">:[</span>
+    <span class="s2">&quot;/path/to/known/features.h5&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;/path/to/known/features.h5&quot;</span>
+<span class="p">],</span>
+
+<span class="o">/*</span>
+    <span class="n">the</span> <span class="n">smaller</span><span class="p">,</span> <span class="n">the</span> <span class="n">faster</span> <span class="n">the</span> <span class="n">computations</span><span class="o">.</span>
+    <span class="n">the</span> <span class="n">bigger</span><span class="p">,</span> <span class="n">the</span> <span class="n">higher</span> <span class="n">resolution</span> <span class="n">output</span><span class="o">.</span>
+<span class="o">*/</span>
+<span class="s2">&quot;resize&quot;</span><span class="p">:</span> <span class="mi">510</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Step Two: Run PPReCOGG in <code class="docutils literal"><span class="pre">full_auto</span></code> mode</p>
+<p><code class="docutils literal"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">pprecogg</span> <span class="pre">full_auto</span> <span class="pre">--config_file</span> <span class="pre">config.json</span></code></p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">PPReCOGG</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="how.html">How PPReCOGG Works</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#library-usage-example">Library Usage Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#cli-usage">CLI Usage</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API Documentation</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="how.html" title="previous chapter">How PPReCOGG Works</a></li>
+      <li>Next: <a href="api.html" title="next chapter">API Documentation</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017, Joseph Szymborski.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="_sources/examples.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

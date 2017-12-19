@@ -1,0 +1,16 @@
+{
+  "unknown_image": "D:/onedrive/OneDrive - McGill University/pprecogg_imgs/unknown2.png",
+
+  "known_images":[
+    "D:/onedrive/OneDrive - McGill University/pprecogg_imgs/adh_original_full.png",
+    "D:/onedrive/OneDrive - McGill University/pprecogg_imgs/dcis_original_full.png",
+    "D:/onedrive/OneDrive - McGill University/pprecogg_imgs/black.png"],
+
+  "known_features":[
+    "D:/onedrive/OneDrive - McGill University/pprecogg_features/gabor_adh_original_full.png_s1.0_l0.25_g0.02_p0_1509899952.h5",
+    "D:/onedrive/OneDrive - McGill University/pprecogg_features/gabor_dcis_original_full.png_s1.0_l0.25_g0.02_p0_1509902786.h5",
+    "D:/onedrive/OneDrive - McGill University/pprecogg_features/gabor_black.png_s1.0_l0.25_g0.02_p0_1509905607.h5"
+  ],
+
+  "resize": 510
+}
